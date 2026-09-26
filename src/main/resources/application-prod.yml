@@ -1,0 +1,72 @@
+# ==============================================================================
+# Enterprise Production Profile (application-prod.yml)
+# Adheres to Zero-Trust Architecture, CIS Benchmarks, and OWASP LLM Top 10 Guidelines
+# ==============================================================================
+
+server:
+  port: ${PORT:8080}
+  error:
+    include-stacktrace: never
+    include-message: never
+    include-binding-errors: never
+    include-exception: false
+  server-header: ""
+
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    # In production, TLS verify-full is mandatory for database connections
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/spring_ai_db?sslmode=verify-full}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+      pool-name: SpringAiHikariPool
+
+  jpa:
+    defer-datasource-initialization: false
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+    open-in-view: false
+
+  sql:
+    init:
+      mode: never
+
+  ai:
+    model:
+      chat: google-genai
+    google:
+      genai:
+        api-key: ${SPRING_AI_GOOGLE_GENAI_API_KEY}
+        chat:
+          model: ${GEMINI_MODEL:gemini-3.1-flash-lite}
+          options:
+            temperature: 0.3 # Deterministic temperature for enterprise CRM tasks
+
+# Production Hardened Logging (Masks prompts, SQL statements, and PII from log aggregators)
+logging:
+  level:
+    root: INFO
+    com.example.springai: INFO
+    org.springframework.ai: INFO
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql: WARN
+
+# Production Enterprise CORS Allowlist
+app:
+  security:
+    cors:
+      allowed-origins: ${ALLOWED_ORIGINS:https://crm.company.internal,https://app.company.internal}
+      max-age: 86400

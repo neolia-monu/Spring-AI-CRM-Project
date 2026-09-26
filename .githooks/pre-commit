@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Enterprise Git Pre-Commit Hook: Secret & Credential Leakage Prevention
+# Blocks commits containing API keys, private keys, or plain-text secrets.
+# ==============================================================================
+
+set -e
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BOLD='\033[1m'
+NC='\033[0m' # No Color
+
+echo -e "${BOLD}🔍 Running pre-commit secret scanning on staged files...${NC}"
+
+# Get list of staged files (excluding deletions)
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+
+if [ -z "$STAGED_FILES" ]; then
+    exit 0
+fi
+
+SECRETS_FOUND=0
+
+# Define high-risk regex patterns
+# 1. Google Cloud / Gemini API Keys (AIzaSy...)
+PATTERN_GEMINI='AIza[0-9A-Za-z_-]{30,40}'
+# 2. Private Keys (RSA, EC, DSA, OpenSSH)
+PATTERN_PRIVKEY='-----BEGIN .*PRIVATE KEY'
+# 3. AWS Access Keys
+PATTERN_AWS='(AKIA|ABIA|ACCA|ASIA)[0-9A-Z]{16}'
+# 4. Generic hardcoded passwords (excluding Spring property placeholders like ${...})
+PATTERN_HARDCODED_PWD='(password|secret|api[-_]?key)\s*[:=]\s*["'\''"][^"'\''${}]{8,}["'\''"]'
+
+for FILE in $STAGED_FILES; do
+    # Skip binary files, lock files, and documentation examples
+    if [[ "$FILE" =~ \.(png|jpg|jpeg|gif|ico|pdf|jar|class)$ ]] || [ "$FILE" == "SECURITY.md" ] || [ "$FILE" == ".githooks/pre-commit" ]; then
+        continue
+    fi
+
+    # Check for Google Gemini API Keys
+    if git diff --cached -- "$FILE" | grep -E "^\+" | grep -v "^+++" | grep -q -E -e "$PATTERN_GEMINI"; then
+        echo -e "${RED}❌ [BLOCKED] Google Gemini API Key detected in staged file:${NC} ${BOLD}$FILE${NC}"
+        git diff --cached -- "$FILE" | grep -E "^\+" | grep -v "^+++" | grep -n -E -e "$PATTERN_GEMINI" | head -n 3
+        SECRETS_FOUND=1
+    fi
+
+    # Check for Private Keys
+    if git diff --cached -- "$FILE" | grep -E "^\+" | grep -v "^+++" | grep -q -E -e "$PATTERN_PRIVKEY"; then
+        echo -e "${RED}❌ [BLOCKED] Private Key format detected in staged file:${NC} ${BOLD}$FILE${NC}"
+        SECRETS_FOUND=1
+    fi
+
+    # Check for AWS Access Keys
+    if git diff --cached -- "$FILE" | grep -E "^\+" | grep -v "^+++" | grep -q -E -e "$PATTERN_AWS"; then
+        echo -e "${RED}❌ [BLOCKED] AWS Access Key detected in staged file:${NC} ${BOLD}$FILE${NC}"
+        SECRETS_FOUND=1
+    fi
+done
+
+# If Gitleaks binary is installed on the developer's machine, also run comprehensive gitleaks audit
+if command -v gitleaks &> /dev/null; then
+    echo -e "${YELLOW}⚡ Running Gitleaks binary scanner...${NC}"
+    if ! gitleaks protect --staged --verbose --redact; then
+        echo -e "${RED}❌ [BLOCKED] Gitleaks detected sensitive tokens in staged diff.${NC}"
+        SECRETS_FOUND=1
+    fi
+fi
+
+if [ $SECRETS_FOUND -ne 0 ]; then
+    echo -e "\n${RED}${BOLD}========================================================================${NC}"
+    echo -e "${RED}${BOLD}  COMMIT REJECTED: Potential hardcoded secret(s) detected!${NC}"
+    echo -e "${RED}  Never commit sensitive credentials, tokens, or private keys.${NC}"
+    echo -e "${YELLOW}  Remediation:${NC}"
+    echo -e "  1. Externalize the secret into an environment variable (e.g. \${SPRING_AI_GOOGLE_GENAI_API_KEY})"
+    echo -e "  2. Unstage the offending file: git restore --staged <file>"
+    echo -e "  3. For genuine false positives, mark the line with a '# gitleaks:allow' comment"
+    echo -e "${RED}${BOLD}========================================================================${NC}\n"
+    exit 1
+fi
+
+echo -e "${GREEN}✅ Secret scanning passed: No credential leakage detected.${NC}"
+exit 0

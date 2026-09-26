@@ -1,6 +1,10 @@
 package com.example.springai.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 
 /**
@@ -15,18 +19,28 @@ public class Customer {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank(message = "Customer name is required")
+    @Size(min = 2, max = 100, message = "Customer name must be between 2 and 100 characters")
     @Column(nullable = false)
     private String name;
 
+    @NotBlank(message = "Customer email is required")
+    @Email(message = "Customer email must be a valid email address")
+    @Size(max = 150, message = "Email cannot exceed 150 characters")
     @Column(nullable = false, unique = true)
     private String email;
 
+    @NotBlank(message = "Subscription plan is required")
+    @Pattern(regexp = "^(?i)(Free|Pro|Enterprise)$", message = "Subscription plan must be Free, Pro, or Enterprise")
     @Column(nullable = false)
     private String plan; // e.g. "Free", "Pro", "Enterprise"
 
+    @NotBlank(message = "Account status is required")
+    @Pattern(regexp = "^(?i)(ACTIVE|INACTIVE|SUSPENDED)$", message = "Status must be ACTIVE, INACTIVE, or SUSPENDED")
     @Column(nullable = false)
     private String status; // e.g. "ACTIVE", "INACTIVE", "SUSPENDED"
 
+    @Size(max = 2000, message = "Notes cannot exceed 2000 characters")
     @Column(columnDefinition = "TEXT")
     private String notes;
 

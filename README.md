@@ -21,6 +21,7 @@ For deep dives into design decisions, implementation specs, and technology choic
 
 | Document | Description |
 | :--- | :--- |
+| 🛡️ **[SECURITY.md](./SECURITY.md)** | Enterprise security policy, OWASP LLM Top 10 threat mitigation, vulnerability disclosure SLA, and production hardening checklist. |
 | 🔄 **[CHANGELOG.md](./CHANGELOG.md)** | Detailed audit of all updates, including Spring Boot 4.1.1 baseline, Spring AI 2.0.1, and MCP client integration. |
 | 🏛️ **[ARCHITECTURE.md](./ARCHITECTURE.md)** | Senior Tech Lead breakdown of software architecture, MCP vs MCR, Agentic ReAct loops, and design patterns. |
 | 🧰 **[TECH_STACK.md](./TECH_STACK.md)** | Comprehensive inventory of technologies, frameworks, MCP starters, runtime specifications, and infrastructure choices. |
@@ -101,3 +102,50 @@ Or execute direct `curl` commands:
    ```bash
    curl -s http://localhost:8080/api/ai/insights/1
    ```
+
+---
+
+## 🔐 Enterprise Security, Compliance & Production Policy
+
+This project strictly adheres to enterprise-grade production security standards, establishing formal guardrails across the AI orchestration, protocol, and database layers:
+
+### Core Security Guarantees & Standard Terms
+
+1. **Zero Trust Architecture (ZTA) & Defense-in-Depth:**
+   - Every tier explicitly authenticates and authorizes interactions.
+   - The LLM reasoning tier is strictly isolated from direct persistence execution; it communicates solely via declarative, pre-validated `@Tool` interfaces.
+
+2. **Principle of Least Privilege (PoLP):**
+   - **Zero Raw SQL from LLMs:** Gemini is never permitted to emit raw SQL strings. All queries are channeled through strongly typed Spring Data JPA repositories with parameterized queries.
+   - **Read-Only Automated Boundaries:** MCP and automated database tools are constrained to read operations (`SELECT`), preventing unauthorized mutations or data exfiltration.
+
+3. **OWASP Top 10 for LLM Applications Mitigation:**
+   - **LLM01 (Prompt Injection & Jailbreaks):** System instructions and user prompts are structurally segregated in `ChatClient`. Tool execution parameters undergo strict type conversion and validation.
+   - **LLM02 (Insecure Output Handling):** Chained responses are serialized into immutable Java 21 Records (`CustomerInsight`) with compiler-enforced schemas, eliminating arbitrary code execution risks.
+   - **LLM06 (Sensitive Data Disclosure):** Database projections filter out authentication tokens and sensitive customer metadata prior to model context synthesis.
+
+4. **Secrets Management & Zero Hardcoding:**
+   - Secrets (`SPRING_AI_GOOGLE_GENAI_API_KEY`, database credentials) are injected strictly through external environment variables or enterprise secret vaults (HashiCorp Vault, AWS Secrets Manager, GCP Secret Manager).
+   - Pre-commit scanning hooks prevent credential leakage.
+
+5. **Container Hardening & Non-Root Execution:**
+   - The production container image enforces non-root execution (`USER spring:spring`), minimal Alpine/Distroless base images, and read-only root filesystems adhering to CIS Benchmarks.
+
+6. **Transport Security & Network Isolation:**
+   - TLS 1.3 / SSL encryption enforced across database connections (`sslmode=verify-full`) and external Gemini API interactions.
+   - Database ports (`5432`) are confined to private VPC networks in production environments.
+
+### 🛡️ Production Security Checklist Summary
+
+| Domain | Production Requirement | Standard Enforced |
+| :--- | :--- | :--- |
+| **Identity & Secrets** | Zero hardcoded keys; Vault / Secret Manager injection | SOC 2 / 12-Factor App |
+| **Model Security** | Parameterized `@Tool` calling only; no raw SQL execution | OWASP LLM01, LLM07 |
+| **Output Integrity** | Java 21 Record schema enforcement via `.entity()` | OWASP LLM02 |
+| **Database Access** | Unprivileged DB user with read-only MCP queries | Principle of Least Privilege |
+| **Container Runtime** | Non-root user `spring:spring` on minimal Alpine JRE | CIS Container Benchmark |
+| **Network & Transport** | TLS 1.3 encryption & private VPC segregation | Zero Trust Architecture |
+| **Auditability** | Sanitized structured logs with zero PII leakage | ISO/IEC 27001 / GDPR |
+
+> 📖 **Full Security Documentation:** For complete threat models, Coordinated Vulnerability Disclosure (CVD) timelines, and incident response procedures, consult **[SECURITY.md](./SECURITY.md)**.
+

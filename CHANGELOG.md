@@ -80,6 +80,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+### 🛡️ Enterprise Security Policy & Production Hardening
+- **Dedicated Security Specification:** Added [`SECURITY.md`](./SECURITY.md) detailing industry-standard production security baseline, Coordinated Vulnerability Disclosure (CVD) SLAs, and CVSS remediation timelines.
+- **OWASP LLM Top 10 Mitigation:** Formalized threat model in [`ARCHITECTURE.md`](./ARCHITECTURE.md) and [`README.md`](./README.md) addressing Prompt Injection (LLM01), Insecure Output Handling (LLM02), and Excessive Agency (LLM08).
+- **Jakarta Bean Validation 3.0:** Applied `@Valid`, `@NotBlank`, `@Email`, `@Pattern`, and `@Size` constraints across `Customer` and `ChatRequest` to guard against prompt flooding, buffer exhaustion, and input injection.
+- **Centralized Error Hygiene:** Added `GlobalExceptionHandler` and `ApiErrorResponse` record to prevent stack trace disclosure (CWE-209) while producing structured validation feedback.
+- **Enterprise CORS Architecture:** Created `WebSecurityConfig` with configurable origin allowlisting and restricted HTTP verbs.
+- **Hardened Production Profile:** Created `src/main/resources/application-prod.yml` featuring TLS verify-full DB connections, HikariCP pool optimization, masked log levels (`org.springframework.ai: INFO`), and server header minimization.
+- **Container Hardening:** Updated [`Dockerfile`](./Dockerfile) to enforce least-privilege non-root execution (`USER spring:spring`) on `eclipse-temurin:21-jre-alpine` runtime image, adhering to CIS Docker container benchmarks.
+- **Automated Validation Test Suite:** Created `CustomerValidationTest` executing automated bean validation tests to prevent regression.
+- **MCP Database Boundary:** Enforced declarative, read-only parameterized database tool calls (`DatabaseCustomerTools`) eliminating raw SQL injection vectors.
+- **Pre-Commit Secret Scanning:** Added portable native Git pre-commit hook ([`.githooks/pre-commit`](./.githooks/pre-commit)) and Gitleaks configuration ([`.pre-commit-config.yaml`](./.pre-commit-config.yaml)) actively blocking staged Google Gemini keys (`AIzaSy...`), private keys, and secrets.
+- **Architecture Diagram Normalization:** Standardized Mermaid flowchart syntax across [`ARCHITECTURE.md`](./ARCHITECTURE.md) (quoted labels, strict directional flows, removed invalid subgraph class definitions) to resolve rendering issues.
+- **Secrets Management:** Standardized zero-hardcoded secrets policy with externalized environment injection and enterprise vault compatibility.
+
+---
+
 ### 🔍 Verification & Compatibility Matrix
 
 | Component | Target Version | Supported Range | Compatibility Notes |
@@ -88,5 +104,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 | **Spring Boot** | `4.1.1` | `>= 4.0.0` | Upgraded to support Spring AI 2.x BOM. |
 | **Spring AI BOM** | `2.0.1` | `>= 2.0.0` | Provides unified starters, MCP starters, and ToolCallingAdvisor. |
 | **MCP Starter** | `2.0.1` | `>= 2.0.0` | `spring-ai-starter-mcp-client` enabled. |
-| **Google Gemini Model** | `gemini-2.5-flash` | `gemini-2.0-flash`, `gemini-2.5-pro` | Default model configured in `application.yml`. |
+| **Google Gemini Model** | `gemini-3.1-flash-lite` | `gemini-2.0-flash`, `gemini-2.5-flash` | Default model configured in `application.yml`. |
 | **PostgreSQL** | `16.15` | `15` - `17` | `pgvector` extension v0.8.6 enabled. |

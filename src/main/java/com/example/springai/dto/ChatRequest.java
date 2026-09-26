@@ -1,8 +1,15 @@
 package com.example.springai.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 public class ChatRequest {
 
+    @NotBlank(message = "Message prompt cannot be empty")
+    @Size(max = 4000, message = "Message prompt cannot exceed 4000 characters")
     private String message;
+
+    @Size(max = 2000, message = "System prompt cannot exceed 2000 characters")
     private String systemPrompt;
 
     public ChatRequest() {}
