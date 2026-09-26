@@ -90,6 +90,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Container Hardening:** Updated [`Dockerfile`](./Dockerfile) to enforce least-privilege non-root execution (`USER spring:spring`) on `eclipse-temurin:21-jre-alpine` runtime image, adhering to CIS Docker container benchmarks.
 - **Automated Validation Test Suite:** Created `CustomerValidationTest` executing automated bean validation tests to prevent regression.
 - **MCP Database Boundary:** Enforced declarative, read-only parameterized database tool calls (`DatabaseCustomerTools`) eliminating raw SQL injection vectors.
+- **Pre-Commit Secret Scanning:** Added portable native Git pre-commit hook ([`.githooks/pre-commit`](./.githooks/pre-commit)) and Gitleaks configuration ([`.pre-commit-config.yaml`](./.pre-commit-config.yaml)) actively blocking staged Google Gemini keys (`AIzaSy...`), private keys, and secrets.
+- **Architecture Diagram Normalization:** Standardized Mermaid flowchart syntax across [`ARCHITECTURE.md`](./ARCHITECTURE.md) (quoted labels, strict directional flows, removed invalid subgraph class definitions) to resolve rendering issues.
 - **Secrets Management:** Standardized zero-hardcoded secrets policy with externalized environment injection and enterprise vault compatibility.
 
 ---

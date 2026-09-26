@@ -1,0 +1,22 @@
+# ==============================================================================
+# Enterprise Pre-Commit Configuration (.pre-commit-config.yaml)
+# Enforces automated secret detection (Gitleaks) and code hygiene.
+# ==============================================================================
+repos:
+  # 1. Gitleaks automated secret scanning for credentials, API keys, and tokens
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.24.0
+    hooks:
+      - id: gitleaks
+
+  # 2. Git hygiene and safe commit checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: check-yaml
+        args: ['--allow-multiple-documents']
+      - id: end-of-file-fixer
+      - id: trailing-whitespace

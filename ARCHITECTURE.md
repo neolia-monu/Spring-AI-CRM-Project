@@ -21,28 +21,29 @@ In this application, **both coexist synergistically**:
 
 ```mermaid
 flowchart TD
-    Client[REST Client / Frontend] -->|HTTP POST /api/ai/chat-with-db| Ctrl[AiAssistantController]
-    Ctrl -->|Delegates User Prompt| Svc[AiAssistantService]
-    Svc -->|Fluent Prompt API| CC[Spring AI ChatClient]
+    Client["REST Client / Frontend"] -->|"HTTP POST /api/ai/chat-with-db"| Ctrl["AiAssistantController"]
+    Ctrl -->|"Delegates User Prompt"| Svc["AiAssistantService"]
+    Svc -->|"Fluent Prompt API"| CC["Spring AI ChatClient"]
 
-    subgraph "Spring AI 2.0 MCP & Advisor Layer"
-        CC --> Adv[ToolCallingAdvisor / MCP Client]
-        Adv <-->|Inference & Tool Calls| LLM[Google Gemini 2.5 Flash]
-        Adv -->|MCP JSON-RPC / Method Dispatch| MCPTools[Database Tools @Tool / MCP Tool]
+    subgraph MCP_Layer["Spring AI 2.0 MCP & Advisor Layer"]
+        CC --> Adv["ToolCallingAdvisor / MCP Client"]
+        Adv -->|"Prompt & Tool Definitions"| LLM["Google Gemini 3.1 Flash Lite"]
+        LLM -->|"Tool Calling Decision"| Adv
+        Adv -->|"Method Dispatch"| MCPTools["Database Customer Tools"]
     end
 
-    subgraph "PostgreSQL Data Tier (Docker)"
-        MCPTools -->|JPA Queries| Repo[CustomerRepository]
-        Repo -->|Object-Relational Mapping| Entity[Customer Entity]
-        Entity -->|JDBC Connection| DB[(PostgreSQL 16 Database)]
+    subgraph DB_Tier["PostgreSQL Data Tier (Docker)"]
+        MCPTools -->|"JPA Parameterized Query"| Repo["CustomerRepository"]
+        Repo -->|"Object-Relational Mapping"| Entity["Customer Entity"]
+        Entity -->|"JDBC Connection"| DB[("PostgreSQL 16 Database")]
     end
 
-    DB -->|SQL Result Sets| Repo
-    Repo -->|Customer Records| MCPTools
-    MCPTools -->|Grounded Data Context| Adv
-    Adv -->|Synthesized Fact-Based Answer| Svc
-    Svc -->|HTTP Response DTO| Ctrl
-    Ctrl -->|HTTP 200 OK| Client
+    DB -->|"SQL Result Sets"| Repo
+    Repo -->|"Customer Records"| MCPTools
+    MCPTools -->|"Grounded Data Context"| Adv
+    Adv -->|"Synthesized Fact-Based Answer"| Svc
+    Svc -->|"HTTP Response DTO"| Ctrl
+    Ctrl -->|"HTTP 200 OK"| Client
 ```
 
 ---
@@ -135,29 +136,27 @@ The architecture enforces strict network and execution boundaries between public
 flowchart TD
     subgraph Zone1["Zone 1: Public Ingress & Edge (DMZ)"]
         Client["External REST Client / User Agent"]
-        WAF["WAF & API Gateway (Rate Limiting / TLS Termination)"]
-        Client -->|HTTPS / TLS 1.3| WAF
+        WAF["WAF & API Gateway (Rate Limiting / TLS 1.3)"]
+        Client -->|"HTTPS / TLS 1.3"| WAF
     end
 
-    subgraph Zone2["Zone 2: Application & Orchestration Boundary (Zero Trust)"]
-        WAF -->|Validated JSON Payloads| App["Spring Boot 4.1.1 Microservice (Non-Root User)"]
+    subgraph Zone2["Zone 2: Application Boundary (Zero Trust)"]
+        WAF -->|"Validated JSON Payloads"| App["Spring Boot 4.1.1 Microservice (Non-Root User)"]
         App --> Validator["Jakarta Validation & Input Sanitizer"]
         Validator --> PromptMgr["Prompt Isolation & Boundary Guard"]
     end
 
     subgraph Zone3["Zone 3: External AI Inference & Protocol Layer"]
-        PromptMgr <-->|Encrypted HTTPS TLS 1.3 (Zero Retention)| Gemini["Google Gemini API (gemini-3.1-flash-lite)"]
+        PromptMgr -->|"HTTPS TLS 1.3 - Zero Retention"| Gemini["Google Gemini API (gemini-3.1-flash-lite)"]
+        Gemini -->|"Grounded Structured Response"| PromptMgr
         PromptMgr --> Advisor["Spring AI ToolCallingAdvisor / MCP Client"]
     end
 
     subgraph Zone4["Zone 4: Sandboxed Protocol & Persistence Boundary"]
-        Advisor -->|Strict Method Signatures / JSON Schema| Tools["DatabaseCustomerTools (@Tool)"]
-        Tools -->|Read-Only Parameterized Queries| JPA["Spring Data JPA (Hibernate ORM)"]
-        JPA -->|mTLS / Private Network Only (No Public IP)| PG[("PostgreSQL 16 + pgvector (Unprivileged DB Role)")]
+        Advisor -->|"Strict Method Signatures / JSON Schema"| Tools["DatabaseCustomerTools"]
+        Tools -->|"Read-Only Parameterized Queries"| JPA["Spring Data JPA (Hibernate ORM)"]
+        JPA -->|"mTLS / Private VPC Network"| PG[("PostgreSQL 16 + pgvector")]
     end
-
-    classDef zone fill:#f9f9fb,stroke:#333,stroke-width:1px;
-    class Zone1,Zone2,Zone3,Zone4 zone;
 ```
 
 ---

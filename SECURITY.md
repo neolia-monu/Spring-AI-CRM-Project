@@ -76,7 +76,16 @@ The table below outlines our proactive controls against generative AI threat vec
 ## 5. Production Hardening & Security Controls
 
 ### 5.1 Secrets Management & Credentials Isolation
-1. **Zero Hardcoded Secrets Policy:** No passwords, tokens, or private keys may ever be committed to git. Enforced via pre-commit hooks (`gitleaks`, `git-secrets`).
+1. **Zero Hardcoded Secrets Policy & Pre-Commit Protection:** 
+   No passwords, API tokens, or private keys may ever be committed to git. This is actively enforced in the repository via two complementary layers:
+   - **Native Git Pre-Commit Hook ([`.githooks/pre-commit`](./.githooks/pre-commit)):** A zero-dependency scanner that inspects staged file diffs (`git diff --cached`) before every commit for Google Gemini API keys (`AIzaSy...`), RSA/EC private keys, AWS access keys, and hardcoded credentials. Activated across your local workspace via:
+     ```bash
+     git config core.hooksPath .githooks
+     ```
+   - **Turnkey Gitleaks Integration ([`.pre-commit-config.yaml`](./.pre-commit-config.yaml)):** Configured with official `gitleaks` rules and hygiene checks for developers using the `pre-commit` framework:
+     ```bash
+     pre-commit install
+     ```
 2. **Environment Variable Injection:**
    - Production API Key: `SPRING_AI_GOOGLE_GENAI_API_KEY`
    - Production Database Credentials: `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`, `SPRING_DATASOURCE_URL`
