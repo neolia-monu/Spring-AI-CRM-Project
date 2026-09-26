@@ -1,0 +1,56 @@
+services:
+  # 1. PostgreSQL with pgvector extension
+  postgres:
+    image: docker.io/pgvector/pgvector:pg16
+    container_name: postgres-spring-ai
+    environment:
+      POSTGRES_DB: spring_ai_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d spring_ai_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Optional: Model Context Protocol (MCP) Server for PostgreSQL
+  # Exposes database tools (read_query, list_tables, describe_table) over the MCP open standard
+  postgres-mcp:
+    image: mcp/postgres:latest
+    container_name: postgres-mcp-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_URL: postgresql://postgres:postgrespassword@postgres:5432/spring_ai_db
+    ports:
+      - "8001:8000"
+    profiles:
+      - mcp
+
+  # 3. Optional: Run Spring Boot application containerized
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spring-ai-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/spring_ai_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgrespassword
+      SPRING_AI_GOOGLE_GENAI_API_KEY: ${SPRING_AI_GOOGLE_GENAI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.1-flash-lite}
+    profiles:
+      - full
+
+volumes:
+  pgdata:

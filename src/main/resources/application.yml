@@ -1,0 +1,44 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: spring-ai-gemini-postgres
+
+  # PostgreSQL Database Configuration
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/spring_ai_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgrespassword}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    defer-datasource-initialization: true
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+
+  sql:
+    init:
+      mode: always
+
+  # Spring AI 2.0 Configuration
+  ai:
+    model:
+      chat: google-genai
+    google:
+      genai:
+        api-key: ${SPRING_AI_GOOGLE_GENAI_API_KEY:}
+        chat:
+          model: ${GEMINI_MODEL:gemini-3.1-flash-lite}
+          options:
+            temperature: 0.7
+
+logging:
+  level:
+    org.springframework.ai: DEBUG
+    org.hibernate.SQL: DEBUG
