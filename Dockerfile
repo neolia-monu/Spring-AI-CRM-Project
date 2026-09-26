@@ -14,8 +14,14 @@ RUN mvn clean package -DskipTests
 FROM docker.io/library/eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-# Copy built jar from build stage
-COPY --from=build /app/target/*.jar app.jar
+# Security: Create unprivileged system user and group adhering to CIS container benchmarks
+RUN addgroup -S spring && adduser -S spring -G spring
+
+# Copy built jar from build stage with strict ownership
+COPY --from=build --chown=spring:spring /app/target/*.jar app.jar
+
+# Enforce least-privilege non-root execution
+USER spring:spring
 
 EXPOSE 8080
 

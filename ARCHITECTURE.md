@@ -122,3 +122,80 @@ Eliminates brittle regex and manual JSON parsing. By chaining `.entity(CustomerI
 ### 5. Twelve-Factor Configuration & Container Isolation
 - **Configuration (Factor III):** API keys and database endpoints are injected via environment variables (`SPRING_AI_GOOGLE_GENAI_API_KEY`, `SPRING_DATASOURCE_URL`).
 - **Backing Services (Factor IV):** PostgreSQL and optional MCP servers run as isolated Docker containers with declarative health checks.
+
+---
+
+## 4. Enterprise Security Architecture, Threat Model & Defense-in-Depth
+
+### 4.1 Multi-Tier Trust Boundaries & Security Zones
+
+The architecture enforces strict network and execution boundaries between public clients, probabilistic AI inference engines, declarative protocol adapters, and persistent database engines:
+
+```mermaid
+flowchart TD
+    subgraph Zone1["Zone 1: Public Ingress & Edge (DMZ)"]
+        Client["External REST Client / User Agent"]
+        WAF["WAF & API Gateway (Rate Limiting / TLS Termination)"]
+        Client -->|HTTPS / TLS 1.3| WAF
+    end
+
+    subgraph Zone2["Zone 2: Application & Orchestration Boundary (Zero Trust)"]
+        WAF -->|Validated JSON Payloads| App["Spring Boot 4.1.1 Microservice (Non-Root User)"]
+        App --> Validator["Jakarta Validation & Input Sanitizer"]
+        Validator --> PromptMgr["Prompt Isolation & Boundary Guard"]
+    end
+
+    subgraph Zone3["Zone 3: External AI Inference & Protocol Layer"]
+        PromptMgr <-->|Encrypted HTTPS TLS 1.3 (Zero Retention)| Gemini["Google Gemini API (gemini-3.1-flash-lite)"]
+        PromptMgr --> Advisor["Spring AI ToolCallingAdvisor / MCP Client"]
+    end
+
+    subgraph Zone4["Zone 4: Sandboxed Protocol & Persistence Boundary"]
+        Advisor -->|Strict Method Signatures / JSON Schema| Tools["DatabaseCustomerTools (@Tool)"]
+        Tools -->|Read-Only Parameterized Queries| JPA["Spring Data JPA (Hibernate ORM)"]
+        JPA -->|mTLS / Private Network Only (No Public IP)| PG[("PostgreSQL 16 + pgvector (Unprivileged DB Role)")]
+    end
+
+    classDef zone fill:#f9f9fb,stroke:#333,stroke-width:1px;
+    class Zone1,Zone2,Zone3,Zone4 zone;
+```
+
+---
+
+### 4.2 Threat Model Analysis (STRIDE & OWASP LLM Top 10)
+
+| STRIDE Category | Target Component | Threat Vector & OWASP LLM Risk | Mitigation Control Implemented in Architecture |
+| :--- | :--- | :--- | :--- |
+| **Spoofing** | API Endpoints | Unauthorized caller impersonating legitimate client. | External API Gateway enforces OAuth2/JWT verification; internal endpoints reject unauthenticated calls. |
+| **Tampering** | Prompt / Tool Invocations | **Prompt Injection (LLM01):** Malicious inputs attempting to hijack tool calling parameters. | Decoupled tool interface. The model receives strictly typed JSON schemas and cannot alter method signatures or run arbitrary SQL. |
+| **Repudiation** | MCP Tool Executions | Disputed or untraceable database tool operations. | Structured audit logging records tool invocation timestamps, method names, execution arguments, and caller hash. |
+| **Information Disclosure** | Data Tier & LLM Completion | **Sensitive Information Disclosure (LLM06):** Customer PII leaking into model responses or logs. | Repository queries project minimal required fields. Logback explicitly filters out SQL parameters and PII in production profiles. |
+| **Denial of Service** | LLM Engine & DB Pool | **Model Denial of Service (LLM04):** Resource exhaustion via excessive prompt tokens or DB connection starvation. | HikariCP pool caps active connections (max 10); model temperature set to deterministic 0.7; client HTTP timeouts (5s connect / 15s read). |
+| **Elevation of Privilege** | Container & Database | **Excessive Agency (LLM08):** Compromised model attempting administrative database commands. | Container runs under unprivileged `spring:spring` user. DB role lacks `DROP`, `ALTER`, or `TRUNCATE` permissions; tools are strictly read-only (`SELECT`). |
+
+---
+
+### 4.3 MCP Sandboxing vs. Direct Raw SQL Generation
+
+A fundamental architectural flaw in naive LLM database integration is allowing the LLM to emit raw SQL queries (e.g. `SELECT * FROM users WHERE ...` or `DROP TABLE ...`).
+
+| Evaluation Dimension | ❌ Anti-Pattern: Direct Raw SQL Generation | ✅ Architectural Standard: Declarative MCP Tools |
+| :--- | :--- | :--- |
+| **SQL Injection Risk** | **Critical.** Injected prompts can alter SQL syntax, drop tables, or read system tables (`pg_shadow`). | **Zero.** Queries are parameterized Spring Data derived queries or Criteria APIs with no string concatenation. |
+| **Schema Exposure** | Entire database schema must be disclosed to the LLM system prompt. | Only pre-selected domain tools (`getCustomersByPlan`) are exposed via typed JSON schemas. |
+| **Permission Scoping** | Requires full table access to execute arbitrary SELECT statements. | Granular method-level access control. Only explicitly approved business logic is invokable. |
+| **Output Type Safety** | Dynamic JDBC ResultSets with prone-to-failure dynamic deserialization. | Strongly typed Java 21 Records (`CustomerInsight`) with compiler validation. |
+
+---
+
+### 4.4 Defense-in-Depth Implementation Guidelines
+
+1. **Deterministic Structured Outputs:** 
+   By utilizing `chatClient.prompt().call().entity(CustomerInsight.class)`, the system guarantees that responses adhere to pre-defined Java record contracts, effectively preventing downstream XSS or malformed payloads.
+2. **Container Security & Least Privilege:**
+   The multi-stage `Dockerfile` drops root permissions immediately after compiling, launching the JVM under a dedicated unprivileged user (`USER spring:spring`).
+3. **Externalized Secret Management:**
+   Secrets are strictly injected at runtime from cloud KMS / Vault solutions into environment variables, ensuring zero credential leakage across commit logs.
+
+> 🛡️ For the operational policy, CVSS triage SLAs, and vulnerability reporting procedures, refer to **[SECURITY.md](./SECURITY.md)**.
+

@@ -59,3 +59,22 @@ A comprehensive technical inventory of all frameworks, runtimes, persistence lay
 | **HTTP Testing** | `cURL` + `jq` | Scripted endpoint verification and JSON formatting via `test-endpoints.sh`. |
 | **Validation API** | `Jakarta Validation` | `@NotNull`, `@NotBlank`, and `@Size` constraints on incoming DTOs. |
 | **Observability** | `SLF4J` + `Logback` | Configured with detailed DEBUG tracing for `org.springframework.ai` tool execution loops and Hibernate SQL statements. |
+
+---
+
+## 6. Enterprise Security, Governance & Production Hardening Stack
+
+| Security Domain | Technology / Specification | Standard & Production Role |
+| :--- | :--- | :--- |
+| **Input Validation** | `Jakarta Bean Validation 3.0` | `@NotBlank`, `@Size`, `@Pattern` enforcing payload hygiene before prompt execution. |
+| **Prompt Sandboxing** | `Spring AI ChatClient Fluent API` | Complete isolation between system instructions, model context, and dynamic user prompts. |
+| **Output Type Safety** | `Java 21 Records` + Jackson 3 | Strongly typed structured output schema enforcement via `.entity()` preventing script/code execution. |
+| **Container Hardening** | `Alpine Linux + Non-Root User` | Drops root privileges; executes JVM under dedicated `USER spring:spring` (UID/GID 10001). |
+| **Secret Management** | `Externalized Environment Injection` | Zero hardcoded keys. Vault / AWS Secrets Manager / GCP Secret Manager compatible. |
+| **Transport Encryption** | `TLS 1.3 / SSL` | Enforces HTTPS on public APIs and `sslmode=verify-full` on PostgreSQL persistence links. |
+| **Threat Model Alignment** | `OWASP LLM Top 10 (2025/2026)` | Proactive mitigation against Prompt Injection (LLM01), Insecure Output (LLM02), and Excessive Agency (LLM08). |
+| **Supply Chain Security** | `CycloneDX / SPDX SBOM` | Software Bill of Materials tracking, automated Trivy scanning, and Dependabot vulnerability patching. |
+| **Audit & Governance** | `SLF4J / Logback Masked Logging` | Audit trail of all database tool invocations with automated PII masking. |
+
+> 🛡️ For the operational policy, CVSS triage SLAs, and vulnerability reporting procedures, refer to **[SECURITY.md](./SECURITY.md)**.
+

@@ -2,6 +2,7 @@ package com.example.springai.controller;
 
 import com.example.springai.model.Customer;
 import com.example.springai.repository.CustomerRepository;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -40,7 +41,7 @@ public class CustomerController {
     }
 
     @PostMapping
-    public ResponseEntity<Customer> createCustomer(@RequestBody Customer customer) {
+    public ResponseEntity<Customer> createCustomer(@Valid @RequestBody Customer customer) {
         Customer saved = customerRepository.save(customer);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
